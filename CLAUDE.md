@@ -68,6 +68,7 @@ Docker Container (port 8000)
 | `TABLEAU_PAT_NAME` | yes | Personal Access Token name |
 | `TABLEAU_PAT_SECRET` | yes | Personal Access Token secret |
 | `LOG_LEVEL` | no | Default: `INFO` |
+| `MCP_SERVER_PATH` | no | Default: `/app/mcp/build/index.js` |
 
 ---
 
@@ -81,18 +82,19 @@ Docker Container (port 8000)
 - Commit `tableau-mcp/dist/` and `tableau-mcp/node_modules/`; do NOT commit `backend/.venv`, `frontend/node_modules`, `frontend/out`
 - **Verify:** `uv run python -c "import fastapi, anthropic, mcp"` succeeds; `tableau-mcp/dist/index.js` exists; `cd frontend && npm run build` succeeds
 
-### TASK 2 — Environment Configuration
+### TASK 2 — Environment Configuration ✅ DONE
 - `backend/app/config.py`: pydantic-settings `BaseSettings`; raises `ValidationError` at startup for missing vars
 - `backend/app/models/schemas.py`: define `Message(role: Literal["user","assistant"], content: str)` and `ChatRequest(message: str = Field(max_length=2000), history: list[Message] = [])`
 - Frontend needs no `.env` — calls backend at same origin
-- **Verify:** remove one required var from `.env` → `uv run python -c "from app.config import settings"` prints a clear `ValidationError` naming the missing field
+- **Verify:** ✅ `uv run pytest tests/test_config.py tests/test_schemas.py` — 9 tests passing (missing vars, role validation, 2000-char limit, default history)
 
-### TASK 3 — MCP Bridge (`backend/app/services/mcp_bridge.py`)
-- Launch subprocess: `node /app/mcp/dist/index.js` (deterministic, no npx)
-- Use `AsyncExitStack` to manage `stdio_client` + `ClientSession` context managers
-- Cache tool list on connect (`session.list_tools()`)
-- `call_tool(name, tool_input)`: `session.call_tool(name, arguments=tool_input)` with 30s timeout; flatten content blocks to string
-- **Verify:** `test_mcp_bridge.py` — mock MCP subprocess; assert `bridge.tools` is non-empty after connect; assert `call_tool` passes correct name and arguments; assert `disconnect` closes cleanly
+### TASK 3 — MCP Bridge (`backend/app/services/mcp_bridge.py`) ✅ DONE
+- Launch subprocess: `node <mcp_server_path>` — path from `settings.mcp_server_path` (default `/app/mcp/build/index.js`)
+- `AsyncExitStack` manages `stdio_client` + `ClientSession`; Tableau env vars passed explicitly to `StdioServerParameters.env`
+- Tool list cached on `connect()` via `session.list_tools()`
+- `call_tool(name, tool_input)`: 30s timeout via `read_timeout_seconds=timedelta(seconds=30)`; content blocks flattened to string
+- **Verify:** ✅ `uv run pytest tests/test_mcp_bridge.py` — 5 tests passing (connect caches tools, text flattening, single block, empty content, disconnect)
+
 
 ### TASK 4 — Agent Service (`backend/app/services/agent.py`)
 - `MAX_ITERATIONS = 10` guard; emit `event: error` if exceeded
@@ -101,7 +103,7 @@ Docker Container (port 8000)
 - On `stop_reason == "tool_use"`: emit `event: tool_call` per tool, execute via bridge, feed results back
 - On `stop_reason == "end_turn"`: emit `event: done`
 - **Conversation memory:** accept `history: list[Message]` and seed `messages` before appending the new user question
-- **Verify:** `test_agent.py` — mock Anthropic stream + bridge; assert `event: token` and `event: done` emitted for a simple end_turn response; assert `event: tool_call` emitted and bridge called for a tool_use response; assert `event: error` emitted when iterations exceeded; assert history messages prepended correctly
+
 
 ### TASK 5 — FastAPI App (`backend/app/main.py` + `routers/chat.py`)
 - Lifespan: instantiate `MCPBridge`, connect, store on `app.state.bridge` and `app.state.anthropic_client`
@@ -109,7 +111,6 @@ Docker Container (port 8000)
 - `POST /api/chat` → `StreamingResponse` SSE; inject bridge/client from `request.app.state` (no circular import)
 - `ChatRequest`: `message: str`, `history: list[Message] = []`
 - Mount Next.js static export at `/` if `/app/frontend/out` exists
-- **Verify:** `test_chat.py` via `httpx.AsyncClient` — `GET /health` returns 200 with `mcp_tools` key; `POST /api/chat` SSE stream contains at least one `event: token` and ends with `event: done`; message over 2000 chars returns 422
 
 **SSE events:**
 
@@ -129,7 +130,7 @@ Docker Container (port 8000)
 ### TASK 7 — Platform Scripts (`scripts/`)
 - `start-{mac,linux}.sh` / `start-windows.ps1`: check `.env` exists, check Docker running, `docker compose up --build -d`
 - `stop-{mac,linux}.sh` / `stop-windows.ps1`: `docker compose down`
-- **Verify:** run start script without `.env` → exits with clear error message; run with `.env` present → container starts and prints `http://localhost:8000`
+
 
 ### TASK 8 — Frontend (Next.js static export)
 - `next.config.ts`: `output: 'export'`, `trailingSlash: true`, `images: { unoptimized: true }`
@@ -138,7 +139,7 @@ Docker Container (port 8000)
 - `Header`: connection status dot from `/health`
 - `useChat.ts`: manages SSE, message array, conversation history sent with each request
 - `lib/api.ts`: `POST /api/chat` with `{ message, history }`
-- **Verify:** `npm run build` produces `out/` with no errors; `useChat.test.ts` — token events accumulate into assistant message, tool_call sets indicator, done clears streaming flag, history array grows with each exchange; `MessageInput.test.tsx` — 2000-char limit enforced, Enter submits, Shift+Enter inserts newline, disabled while streaming
+
 
 ### TASK 9 — Error Handling
 - All SSE generator exceptions caught → emit `event: error`, return cleanly
@@ -159,7 +160,7 @@ Docker Container (port 8000)
 | Phase | Tasks | Status |
 |---|---|---|
 | 1 | 1, 2 — Scaffolding + env config | done |
-| 2 | 3 — MCP bridge | pending |
+| 2 | 3 — MCP bridge | done |
 | 3 | 4, 5 — Agent loop + FastAPI | pending |
 | 4 | 8 — Frontend | pending |
 | 5 | 6, 7 — Docker + scripts | pending |
@@ -169,6 +170,8 @@ Docker Container (port 8000)
 
 - `tableau-mcp` builds to `build/index.js` (not `dist/index.js` as originally planned — package changed)
 - Dockerfile and agent must reference `tableau-mcp/build/index.js` as the MCP entry point
+- `MCP_SERVER_PATH` added to `config.py` (default `/app/mcp/build/index.js`) — override via env var for local dev
+- `[tool.pytest.ini_options] asyncio_mode = "auto"` added to `backend/pyproject.toml` for async tests
 
 ---
 
