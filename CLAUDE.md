@@ -73,7 +73,7 @@ Docker Container (port 8000)
 
 ## Task Breakdown
 
-### TASK 1 — Project Scaffolding
+### TASK 1 — Project Scaffolding ✅ DONE
 - `git init` + `.gitignore` (Python, Node, `.env`)
 - `uv init backend` → pin Python 3.12 → add deps: `fastapi uvicorn[standard] pydantic-settings anthropic mcp`; dev: `pytest pytest-asyncio httpx`
 - `npx create-next-app@latest frontend --typescript --tailwind --app --no-src-dir`
@@ -156,14 +156,19 @@ Docker Container (port 8000)
 
 ## Implementation Order
 
-| Phase | Tasks |
-|---|---|
-| 1 | 1, 2 — Scaffolding + env config |
-| 2 | 3 — MCP bridge |
-| 3 | 4, 5 — Agent loop + FastAPI |
-| 4 | 8 — Frontend |
-| 5 | 6, 7 — Docker + scripts |
-| 6 | 9, 10, 11 — Error handling + tests + README |
+| Phase | Tasks | Status |
+|---|---|---|
+| 1 | 1, 2 — Scaffolding + env config | done |
+| 2 | 3 — MCP bridge | pending |
+| 3 | 4, 5 — Agent loop + FastAPI | pending |
+| 4 | 8 — Frontend | pending |
+| 5 | 6, 7 — Docker + scripts | pending |
+| 6 | 9, 10, 11 — Error handling + tests + README | pending |
+
+## Implementation Notes
+
+- `tableau-mcp` builds to `build/index.js` (not `dist/index.js` as originally planned — package changed)
+- Dockerfile and agent must reference `tableau-mcp/build/index.js` as the MCP entry point
 
 ---
 
