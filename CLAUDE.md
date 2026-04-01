@@ -106,7 +106,7 @@ Docker Container (port 8000)
 - **Verify:** ✅ `uv run pytest tests/test_agent.py` — 8 tests passing (tool conversion, end_turn flow, tool_use flow, tool result fed back, max iterations guard, history seeding)
 
 
-### TASK 5 — FastAPI App (`backend/app/main.py` + `routers/chat.py`)
+### TASK 5 — FastAPI App (`backend/app/main.py` + `routers/chat.py`) ✅ DONE
 - Lifespan: instantiate `MCPBridge`, connect, store on `app.state.bridge` and `app.state.anthropic_client`
 - `GET /health` → `{"status": "ok", "mcp_tools": N}`
 - `POST /api/chat` → `StreamingResponse` SSE; inject bridge/client from `request.app.state` (no circular import)
@@ -121,6 +121,8 @@ Docker Container (port 8000)
 | `tool_call` | tool name |
 | `error` | `{"message": "..."}` |
 | `done` | `{}` |
+
+- **Verify:** ✅ `uv run pytest tests/test_chat.py` — 5 tests passing (health endpoint, SSE streaming, history passthrough, 422 on oversized message, app.state injection); `uv run pytest` — 27 tests passing total
 
 ### TASK 6 — Docker (`Dockerfile` + `docker-compose.yml`)
 - 3-stage build: `frontend-build` (Next.js static export), `mcp-build` (copy pre-built dist + node_modules), `runtime` (python:3.12-slim + Node 20 + uv)
@@ -162,7 +164,7 @@ Docker Container (port 8000)
 |---|---|---|
 | 1 | 1, 2 — Scaffolding + env config | done |
 | 2 | 3 — MCP bridge | done |
-| 3 | 4, 5 — Agent loop + FastAPI | 4 done, 5 pending |
+| 3 | 4, 5 — Agent loop + FastAPI | done |
 | 4 | 8 — Frontend | pending |
 | 5 | 6, 7 — Docker + scripts | pending |
 | 6 | 9, 10, 11 — Error handling + tests + README | pending |
@@ -173,6 +175,7 @@ Docker Container (port 8000)
 - Dockerfile and agent must reference `tableau-mcp/build/index.js` as the MCP entry point
 - `MCP_SERVER_PATH` added to `config.py` (default `/app/mcp/build/index.js`) — override via env var for local dev
 - `[tool.pytest.ini_options] asyncio_mode = "auto"` added to `backend/pyproject.toml` for async tests
+- `httpx.ASGITransport` does NOT trigger the ASGI lifespan — tests for `main.py` set `app.state` directly in the fixture (after patching `MCPBridge.connect/disconnect` to prevent real subprocess spawning)
 
 ---
 
