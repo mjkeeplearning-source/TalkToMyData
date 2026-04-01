@@ -96,13 +96,14 @@ Docker Container (port 8000)
 - **Verify:** ✅ `uv run pytest tests/test_mcp_bridge.py` — 5 tests passing (connect caches tools, text flattening, single block, empty content, disconnect)
 
 
-### TASK 4 — Agent Service (`backend/app/services/agent.py`)
+### TASK 4 — Agent Service (`backend/app/services/agent.py`) ✅ DONE
 - `MAX_ITERATIONS = 10` guard; emit `event: error` if exceeded
 - Convert `bridge.tools` → Anthropic tool format (`name`, `description`, `input_schema`)
 - Streaming loop: `event.type == "text"` → yield `event: token`; `get_final_message()` handles tool input reassembly
 - On `stop_reason == "tool_use"`: emit `event: tool_call` per tool, execute via bridge, feed results back
 - On `stop_reason == "end_turn"`: emit `event: done`
 - **Conversation memory:** accept `history: list[Message]` and seed `messages` before appending the new user question
+- **Verify:** ✅ `uv run pytest tests/test_agent.py` — 8 tests passing (tool conversion, end_turn flow, tool_use flow, tool result fed back, max iterations guard, history seeding)
 
 
 ### TASK 5 — FastAPI App (`backend/app/main.py` + `routers/chat.py`)
@@ -161,7 +162,7 @@ Docker Container (port 8000)
 |---|---|---|
 | 1 | 1, 2 — Scaffolding + env config | done |
 | 2 | 3 — MCP bridge | done |
-| 3 | 4, 5 — Agent loop + FastAPI | pending |
+| 3 | 4, 5 — Agent loop + FastAPI | 4 done, 5 pending |
 | 4 | 8 — Frontend | pending |
 | 5 | 6, 7 — Docker + scripts | pending |
 | 6 | 9, 10, 11 — Error handling + tests + README | pending |
