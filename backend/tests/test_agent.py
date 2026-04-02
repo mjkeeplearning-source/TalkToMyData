@@ -65,8 +65,20 @@ def test_tools_for_anthropic(mock_bridge):
             "name": "query_data",
             "description": "Query Tableau data",
             "input_schema": {"type": "object", "properties": {}},
+            "cache_control": {"type": "ephemeral"},
         }
     ]
+
+
+def test_tools_for_anthropic_cache_control_on_last_only():
+    bridge = MagicMock()
+    bridge.tools = [
+        Tool(name="a", description="first", inputSchema={"type": "object"}),
+        Tool(name="b", description="last", inputSchema={"type": "object"}),
+    ]
+    result = _tools_for_anthropic(bridge)
+    assert "cache_control" not in result[0]
+    assert result[1]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_tools_for_anthropic_none_description():
