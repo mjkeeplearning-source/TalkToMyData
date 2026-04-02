@@ -117,10 +117,10 @@ describe("useChat", () => {
     expect(result.current.toolStatus).toBeNull();
   });
 
-  it("reconstructs newlines from multi-line SSE data fields", async () => {
-    // Backend encodes newlines as multiple data: lines per RFC 8895
+  it("reconstructs newlines from escaped \\n literals in SSE data", async () => {
+    // Backend escapes \n as literal \n to avoid splitting SSE event boundaries on \n\n
     const raw =
-      "event: token\ndata: ### Heading\ndata: | Col |\ndata: | --- |\n\n" +
+      "event: token\ndata: ### Heading\\n| Col |\\n\\n| Row |\n\n" +
       "event: done\ndata: {}\n\n";
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
@@ -131,7 +131,7 @@ describe("useChat", () => {
       await result.current.sendMessage("Hi");
     });
     const assistant = result.current.messages.find((m) => m.role === "assistant");
-    expect(assistant?.content).toBe("### Heading\n| Col |\n| --- |");
+    expect(assistant?.content).toBe("### Heading\n| Col |\n\n| Row |");
   });
 
   it("ignores sendMessage when already loading", async () => {

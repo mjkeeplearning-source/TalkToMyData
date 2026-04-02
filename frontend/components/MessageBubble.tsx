@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { type ChatMessage } from "@/hooks/useChat";
 
 interface Props {
@@ -41,7 +42,7 @@ export default function MessageBubble({ message, onRetry }: Props) {
       <div className="max-w-[75%] rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900 px-4 py-2.5 text-sm leading-relaxed">
         {message.content ? (
           <div className="chat-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
               {message.content}
             </ReactMarkdown>
           </div>
