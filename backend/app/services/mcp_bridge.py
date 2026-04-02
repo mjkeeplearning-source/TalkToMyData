@@ -21,10 +21,10 @@ class MCPBridge:
             command="node",
             args=[settings.mcp_server_path],
             env={
-                "TABLEAU_SERVER_URL": settings.tableau_server_url,
-                "TABLEAU_SITE_NAME": settings.tableau_site_name,
-                "TABLEAU_PAT_NAME": settings.tableau_pat_name,
-                "TABLEAU_PAT_SECRET": settings.tableau_pat_secret,
+                "SERVER": settings.tableau_server_url,
+                "SITE_NAME": settings.tableau_site_name,
+                "PAT_NAME": settings.tableau_pat_name,
+                "PAT_VALUE": settings.tableau_pat_secret,
             },
         )
         read, write = await self._stack.enter_async_context(stdio_client(params))
