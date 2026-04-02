@@ -46,7 +46,8 @@ export function useChat() {
           let eventData = "";
           for (const line of block.split("\n")) {
             if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-            if (line.startsWith("data: ")) eventData = line.slice(6);
+            if (line.startsWith("data: "))
+              eventData = eventData ? eventData + "\n" + line.slice(6) : line.slice(6);
           }
 
           if (eventType === "token") {

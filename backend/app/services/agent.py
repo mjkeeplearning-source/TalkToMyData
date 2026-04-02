@@ -59,7 +59,8 @@ async def run_agent(
             ) as stream:
                 async for event in stream:
                     if event.type == "text":
-                        yield f"event: token\ndata: {event.text}\n\n"
+                        encoded = "\ndata: ".join(event.text.split("\n"))
+                        yield f"event: token\ndata: {encoded}\n\n"
                 message = await stream.get_final_message()
 
             if message.stop_reason == "end_turn":

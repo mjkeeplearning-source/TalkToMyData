@@ -38,11 +38,13 @@ export default function MessageBubble({ message, onRetry }: Props) {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[75%] rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900 px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-gray max-w-none">
+      <div className="max-w-[75%] rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900 px-4 py-2.5 text-sm leading-relaxed">
         {message.content ? (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
-          </ReactMarkdown>
+          <div className="chat-content">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
         ) : (
           <span className="inline-flex gap-1 items-center text-gray-400">
             <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />

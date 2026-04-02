@@ -24,3 +24,50 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Markdown table styles for chat assistant messages */
+.chat-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.8125rem;
+}
+
+.chat-content th {
+  background-color: #e5e7eb;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #d1d5db;
+  white-space: nowrap;
+}
+
+.chat-content td {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.chat-content tr:nth-child(even) td {
+  background-color: #f9fafb;
+}
+
+.chat-content h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.4rem;
+}
+
+.chat-content p {
+  margin: 0.4rem 0;
+}
+
+.chat-content ul {
+  margin: 0.4rem 0;
+  padding-left: 1.25rem;
+  list-style-type: disc;
+}
+
+.chat-content li {
+  margin: 0.2rem 0;
+}

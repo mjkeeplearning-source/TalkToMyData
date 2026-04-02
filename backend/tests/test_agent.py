@@ -101,6 +101,21 @@ async def test_run_agent_end_turn(mock_bridge):
     assert not any("error" in c for c in chunks)
 
 
+async def test_run_agent_newlines_encoded_in_sse(mock_bridge):
+    """Newlines in token text must be encoded as multiple data: lines (RFC 8895)."""
+    stream = MockStream(
+        [_text_event("### Heading\n| Col |\n| --- |")],
+        _final_message("end_turn"),
+    )
+    client = MagicMock()
+    client.messages.stream.return_value = stream
+
+    chunks = [c async for c in run_agent(client, mock_bridge, "Hi")]
+
+    token_chunk = next(c for c in chunks if c.startswith("event: token"))
+    assert token_chunk == "event: token\ndata: ### Heading\ndata: | Col |\ndata: | --- |\n\n"
+
+
 async def test_run_agent_tool_use_then_end_turn(mock_bridge):
     tool_block = _tool_use_block("query_data", {"q": "sales"})
     streams = iter([

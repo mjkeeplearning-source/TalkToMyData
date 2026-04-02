@@ -18,6 +18,15 @@ function makeStream(events: { event: string; data: string }[]): ReadableStream {
   });
 }
 
+function makeRawStream(rawText: string): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(rawText));
+      controller.close();
+    },
+  });
+}
+
 function stubFetch(events: { event: string; data: string }[]) {
   vi.spyOn(global, "fetch").mockResolvedValue({
     ok: true,
@@ -106,6 +115,23 @@ describe("useChat", () => {
     });
     expect(result.current.isLoading).toBe(false);
     expect(result.current.toolStatus).toBeNull();
+  });
+
+  it("reconstructs newlines from multi-line SSE data fields", async () => {
+    // Backend encodes newlines as multiple data: lines per RFC 8895
+    const raw =
+      "event: token\ndata: ### Heading\ndata: | Col |\ndata: | --- |\n\n" +
+      "event: done\ndata: {}\n\n";
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      body: makeRawStream(raw),
+    } as Response);
+    const { result } = renderHook(() => useChat());
+    await act(async () => {
+      await result.current.sendMessage("Hi");
+    });
+    const assistant = result.current.messages.find((m) => m.role === "assistant");
+    expect(assistant?.content).toBe("### Heading\n| Col |\n| --- |");
   });
 
   it("ignores sendMessage when already loading", async () => {
