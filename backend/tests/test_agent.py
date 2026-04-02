@@ -175,3 +175,18 @@ async def test_run_agent_no_history(mock_bridge):
 
     chunks = [c async for c in run_agent(client, mock_bridge, "hello")]
     assert "event: done\ndata: {}\n\n" in chunks
+
+
+async def test_run_agent_call_tool_raises_emits_error(mock_bridge):
+    """Exception from bridge.call_tool emits event: error and closes cleanly."""
+    tool_block = _tool_use_block("query_data", {})
+    mock_bridge.call_tool = AsyncMock(side_effect=RuntimeError("MCP timeout"))
+
+    client = MagicMock()
+    client.messages.stream.return_value = MockStream([], _final_message("tool_use", content=[tool_block]))
+
+    chunks = [c async for c in run_agent(client, mock_bridge, "query")]
+
+    error_chunks = [c for c in chunks if "event: error" in c]
+    assert len(error_chunks) == 1
+    assert not any("event: done" in c for c in chunks)
