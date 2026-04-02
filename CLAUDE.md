@@ -104,7 +104,7 @@ Docker Container (port 8000)
 - On `stop_reason == "tool_use"`: emit `event: tool_call` per tool, execute via bridge, feed results back
 - On `stop_reason == "end_turn"`: emit `event: done`
 - **Conversation memory:** accept `history: list[Message]` and seed `messages` before appending the new user question
-- **Verify:** ✅ `uv run pytest tests/test_agent.py` — 8 tests passing (tool conversion, end_turn flow, tool_use flow, tool result fed back, max iterations guard, history seeding)
+- **Verify:** ✅ `uv run pytest tests/test_agent.py` — 9 tests passing (tool conversion, end_turn flow, tool_use flow, tool result fed back, max iterations guard, history seeding, call_tool exception → event: error)
 
 
 ### TASK 5 — FastAPI App (`backend/app/main.py` + `routers/chat.py`) ✅ DONE
@@ -147,17 +147,18 @@ Docker Container (port 8000)
 - `STATIC_DIR` env var overrides hardcoded `/app/frontend/out` for local dev
 - **Verify:** ✅ `cd frontend && npm run build` — `out/` generated (3 static routes); `npm test` — 24 tests passing (MessageBubble ×7, MessageInput ×7, ToolCallIndicator ×2, useChat hook ×8)
 
-### TASK 9 — Error Handling
-- All SSE generator exceptions caught → emit `event: error`, return cleanly
-- Frontend: error bubble with "Try again"; connection drop → "Connection lost" bubble
-- **Verify:** mock bridge `call_tool` to raise an exception → SSE stream emits `event: error` and closes (no unhandled exception); trigger max iterations → `event: error` emitted; frontend test — `event: error` renders error bubble with retry button
+### TASK 9 — Error Handling ✅ DONE
+- `agent.py`: entire agentic loop wrapped in `try/except Exception` — exceptions from `bridge.call_tool()` or `client.messages.stream()` emit `event: error` and close cleanly (no silent connection drop)
+- Frontend: error bubble with "Try again" already implemented in `useChat.ts` / `MessageBubble`; connection drop → "Connection lost" bubble
+- **Verify:** ✅ `test_run_agent_call_tool_raises_emits_error` — mock `call_tool` raises `RuntimeError` → exactly one `event: error` emitted, no `event: done`; max iterations test unchanged; frontend `event: error` → error bubble with retry button tested in `useChat.test.tsx`
 
-### TASK 10 — Full Test Run ✅ PARTIAL
-- **Verify:** `cd backend && uv run pytest` — 27 tests passing; `cd frontend && npm test` — 24 tests passing
+### TASK 10 — Full Test Run ✅ DONE
+- **Verify:** ✅ `cd backend && uv run pytest` — 28 tests passing; `cd frontend && npm test` — 24 tests passing
+- Fixed 2 flaky `MessageInput` tests: replaced `userEvent.type("a".repeat(1801+))` with `fireEvent.change` — `userEvent.type` character-by-character on large strings causes timeout and incorrect count in jsdom
 
-### TASK 11 — README
-- Overview, prerequisites, quick-start (cp .env.example, run start script), env var table, architecture diagram, troubleshooting table
-- **Verify:** follow the README cold (no prior context) — container starts and chat works within the documented steps
+### TASK 11 — README ✅ DONE
+- Overview, prerequisites, quick-start (all 3 platforms), env var table, troubleshooting table
+- **Verify:** ✅ End-to-end test confirmed: `curl http://localhost:8000/health` → `{"status":"ok","mcp_tools":16}`; chat `"list data sources"` → agent called `list-datasources` MCP tool → streamed response listing Superstore Datasource
 
 ---
 
@@ -170,7 +171,7 @@ Docker Container (port 8000)
 | 3 | 4, 5 — Agent loop + FastAPI | done |
 | 4 | 8 — Frontend | done |
 | 5 | 6, 7 — Docker + scripts | done |
-| 6 | 9, 10, 11 — Error handling + tests + README | partial (frontend tests done) |
+| 6 | 9, 10, 11 — Error handling + tests + README | done |
 
 ## Implementation Notes
 
@@ -184,6 +185,8 @@ Docker Container (port 8000)
 - `STATIC_DIR` read from `os.getenv("STATIC_DIR", "/app/frontend/out")` in `main.py` — set in `.env` for local dev
 - Tableau MCP expects `SERVER`, `SITE_NAME`, `PAT_NAME`, `PAT_VALUE` env vars (not `TABLEAU_*` prefixed names) — `mcp_bridge.py` maps settings fields to these names
 - Docker frontend stage uses `npm install` not `npm ci` — `npm ci` fails cross-platform because macOS-generated lock files omit Linux-only optional deps (e.g. `@emnapi/runtime`)
+- `agent.py` error handling: `try/except Exception` (not `BaseException`) around the loop — `GeneratorExit` propagates normally for clean async generator shutdown
+- `MessageInput` large-input tests use `fireEvent.change` not `userEvent.type` — typing 1800+ chars character-by-character in jsdom causes timeout and incorrect accumulated count due to React controlled-component batching
 
 ---
 

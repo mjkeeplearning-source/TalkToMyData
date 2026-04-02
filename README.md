@@ -23,10 +23,18 @@ Single Docker container. No separate Node server.
 ```bash
 cp .env.example .env
 # fill in values in .env
-./scripts/start-mac.sh
+./scripts/start-mac.sh      # macOS
+./scripts/start-linux.sh    # Linux
+.\scripts\start-windows.ps1 # Windows
 ```
 
 Then open `http://localhost:8000`.
+
+To stop:
+
+```bash
+./scripts/stop-mac.sh
+```
 
 ## Environment Variables
 
@@ -40,18 +48,14 @@ Then open `http://localhost:8000`.
 | `MCP_SERVER_PATH` | no | Path to MCP entry point (default: `/app/mcp/build/index.js`) |
 | `LOG_LEVEL` | no | Default: `INFO` |
 
-## Development Status
+## Troubleshooting
 
-| Task | Description | Status |
-|---|---|---|
-| 1 | Project scaffolding | done |
-| 2 | Environment config + data models | done |
-| 3 | MCP bridge | done |
-| 4 | Agent service (agentic loop) | pending |
-| 5 | FastAPI app + chat router | pending |
-| 6 | Docker + docker-compose | pending |
-| 7 | Platform start/stop scripts | pending |
-| 8 | Frontend (Next.js) | pending |
-| 9 | Error handling | pending |
-| 10 | Full test run | pending |
-| 11 | README finalization | pending |
+| Symptom | Fix |
+|---|---|
+| `docker: command not found` | Install Docker Desktop and ensure it is running |
+| `.env: No such file or directory` | Run `cp .env.example .env` and fill in values |
+| Health check fails (`curl http://localhost:8000/health`) | Check `docker compose logs` for startup errors |
+| `401 Unauthorized` from Tableau | Verify `TABLEAU_PAT_NAME` and `TABLEAU_PAT_SECRET` are correct |
+| `AuthenticationError` from Anthropic | Verify `ANTHROPIC_API_KEY` is valid |
+| Chat shows "unexpected error" | Check logs: `docker compose logs -f` |
+| Port 8000 already in use | Stop the conflicting process or change the port in `docker-compose.yml` |

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MessageInput from "@/components/MessageInput";
 
@@ -41,19 +41,17 @@ describe("MessageInput", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("does not allow input beyond 2000 characters", async () => {
-    const onSend = vi.fn();
-    render(<MessageInput onSend={onSend} disabled={false} />);
+  it("does not allow input beyond 2000 characters", () => {
+    render(<MessageInput onSend={vi.fn()} disabled={false} />);
     const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-    const longText = "a".repeat(2001);
-    await userEvent.type(textarea, longText);
+    fireEvent.change(textarea, { target: { value: "a".repeat(2001) } });
     expect(textarea.value.length).toBeLessThanOrEqual(2000);
   });
 
-  it("shows character countdown when 200 or fewer characters remain", async () => {
+  it("shows character countdown when 200 or fewer characters remain", () => {
     render(<MessageInput onSend={vi.fn()} disabled={false} />);
     const textarea = screen.getByRole("textbox");
-    await userEvent.type(textarea, "a".repeat(1801));
+    fireEvent.change(textarea, { target: { value: "a".repeat(1801) } });
     expect(screen.getByText("199")).toBeInTheDocument();
   });
 });
