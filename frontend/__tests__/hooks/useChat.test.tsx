@@ -74,14 +74,14 @@ describe("useChat", () => {
   });
 
   it("sets error message on SSE error event", async () => {
-    stubFetch([{ event: "error", data: '{"message":"failed"}' }]);
+    stubFetch([{ event: "error", data: '{"message":"Rate limit reached. Please wait a moment and try again."}' }]);
     const { result } = renderHook(() => useChat());
     await act(async () => {
       await result.current.sendMessage("Hi");
     });
     const errMsg = result.current.messages.find((m) => m.role === "error");
     expect(errMsg).toBeDefined();
-    expect(errMsg?.content).toMatch(/try again/i);
+    expect(errMsg?.content).toMatch(/rate limit/i);
   });
 
   it("sets error message on fetch failure", async () => {

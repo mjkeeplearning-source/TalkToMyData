@@ -10,6 +10,10 @@ from app.config import settings
 from app.routers import chat
 from app.services.mcp_bridge import MCPBridge
 
+logging.basicConfig(
+    level=settings.log_level.upper(),
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = os.getenv("STATIC_DIR", "/app/frontend/out")

@@ -62,12 +62,14 @@ export function useChat() {
           } else if (eventType === "tool_call") {
             setToolStatus("Analyzing...");
           } else if (eventType === "error") {
+            let errorMessage = "Something went wrong. Please try again.";
+            try {
+              const parsed = JSON.parse(eventData);
+              if (parsed.message) errorMessage = parsed.message;
+            } catch { /* use default */ }
             setMessages((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = {
-                role: "error",
-                content: "Something went wrong. Please try again.",
-              };
+              updated[updated.length - 1] = { role: "error", content: errorMessage };
               return updated;
             });
           } else if (eventType === "done") {

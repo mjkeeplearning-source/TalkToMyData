@@ -160,6 +160,22 @@ Docker Container (port 8000)
 - Overview, prerequisites, quick-start (all 3 platforms), env var table, troubleshooting table
 - **Verify:** ✅ End-to-end test confirmed: `curl http://localhost:8000/health` → `{"status":"ok","mcp_tools":16}`; chat `"list data sources"` → agent called `list-datasources` MCP tool → streamed response listing Superstore Datasource
 
+### POST-MVP — System Prompt ✅ DONE
+- `backend/app/prompts/system.md` — editable system prompt file; read per-request so changes take effect without restart
+- `agent.py`: `_load_system_prompt()` reads file via `Path.read_text()`; passed as `system=` to `client.messages.stream`
+
+### POST-MVP — Logging ✅ DONE
+- `main.py`: `logging.basicConfig(level=settings.log_level.upper(), ...)` — `LOG_LEVEL` env var now actually applied (was configured but never wired in)
+- `agent.py`: tool call logged at INFO (`Calling tool: <name> input=<input>`); MCP response logged at DEBUG (truncated to 500 chars)
+- View logs: `docker compose logs -f`; set `LOG_LEVEL=DEBUG` in `.env` to see MCP responses
+
+### POST-MVP — Prompt Caching ✅ DONE
+- `agent.py`: system prompt passed as content block list with `cache_control: {"type": "ephemeral"}` instead of plain string
+- `agent.py`: `cache_control: {"type": "ephemeral"}` added to last tool in tools list — caches all tool schemas up to that point
+- Cache TTL: 5 minutes; cache reads cost 10% of normal input tokens (writes cost 125%)
+- Impact: 16 Tableau tools = ~22,276 tokens; subsequent calls in same conversation save ~20k tokens/call (~65% reduction), staying well under 30k TPM rate limit
+- **Verify:** `uv run pytest tests/test_agent.py` — 10 tests passing (added `test_tools_for_anthropic_cache_control_on_last_only`)
+
 ---
 
 ## Implementation Order
@@ -187,6 +203,9 @@ Docker Container (port 8000)
 - Docker frontend stage uses `npm install` not `npm ci` — `npm ci` fails cross-platform because macOS-generated lock files omit Linux-only optional deps (e.g. `@emnapi/runtime`)
 - `agent.py` error handling: `try/except Exception` (not `BaseException`) around the loop — `GeneratorExit` propagates normally for clean async generator shutdown
 - `MessageInput` large-input tests use `fireEvent.change` not `userEvent.type` — typing 1800+ chars character-by-character in jsdom causes timeout and incorrect accumulated count due to React controlled-component batching
+- System prompt in `backend/app/prompts/system.md`; loaded per-request via `Path.read_text()` — edit without restart
+- `LOG_LEVEL` in `config.py` was never applied; fixed by adding `logging.basicConfig` in `main.py` at startup; DEBUG level logs MCP responses (truncated 500 chars)
+- Prompt caching: `cache_control: {"type": "ephemeral"}` on both system prompt (as content block) and last tool — Anthropic caches the large tool schemas across calls within a 5-min TTL window
 
 ---
 
@@ -206,3 +225,6 @@ Docker Container (port 8000)
 | No landing page — `/` redirects to `/chat` | Simpler UX; no extra page to maintain |
 | Tool call status shown as "Analyzing..." | Friendlier than raw tool names; hides implementation detail |
 | `fetch` + `ReadableStream` for SSE (not `EventSource`) | `EventSource` is GET-only; POST required to send message + history |
+| System prompt in separate file (`prompts/system.md`) | Editable without code changes; reloaded per-request so no restart needed |
+| `logging.basicConfig` at app startup | Wires `LOG_LEVEL` env var into Python logging; INFO shows tool calls, DEBUG adds MCP responses |
+| Prompt caching on system prompt + last tool | ~22k tool schema tokens cached for 5 min; subsequent calls cost 10% of those tokens — avoids 30k TPM rate limit on multi-turn conversations |
