@@ -12,7 +12,7 @@ from app.services.mcp_bridge import MCPBridge
 
 logger = logging.getLogger(__name__)
 
-STATIC_DIR = "/app/frontend/out"
+STATIC_DIR = os.getenv("STATIC_DIR", "/app/frontend/out")
 
 
 @asynccontextmanager
