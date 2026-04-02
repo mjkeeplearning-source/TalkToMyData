@@ -59,7 +59,7 @@ async def run_agent(
             ) as stream:
                 async for event in stream:
                     if event.type == "text":
-                        encoded = "\ndata: ".join(event.text.split("\n"))
+                        encoded = event.text.replace("\n", "\\n")
                         yield f"event: token\ndata: {encoded}\n\n"
                 message = await stream.get_final_message()
 

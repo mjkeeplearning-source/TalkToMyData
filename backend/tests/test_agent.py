@@ -102,9 +102,9 @@ async def test_run_agent_end_turn(mock_bridge):
 
 
 async def test_run_agent_newlines_encoded_in_sse(mock_bridge):
-    """Newlines in token text must be encoded as multiple data: lines (RFC 8895)."""
+    """Newlines in token text must be escaped as \\n literals to avoid splitting SSE events."""
     stream = MockStream(
-        [_text_event("### Heading\n| Col |\n| --- |")],
+        [_text_event("### Heading\n| Col |\n\n| Row |")],
         _final_message("end_turn"),
     )
     client = MagicMock()
@@ -113,7 +113,8 @@ async def test_run_agent_newlines_encoded_in_sse(mock_bridge):
     chunks = [c async for c in run_agent(client, mock_bridge, "Hi")]
 
     token_chunk = next(c for c in chunks if c.startswith("event: token"))
-    assert token_chunk == "event: token\ndata: ### Heading\ndata: | Col |\ndata: | --- |\n\n"
+    # newlines escaped as \n literals — double-newline cannot split SSE event boundary
+    assert token_chunk == "event: token\ndata: ### Heading\\n| Col |\\n\\n| Row |\n\n"
 
 
 async def test_run_agent_tool_use_then_end_turn(mock_bridge):

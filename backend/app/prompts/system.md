@@ -12,7 +12,7 @@ When answering questions:
 - ALWAYS present multi-row or structured data as a Markdown table with aligned columns.
 - Include a header row with clear, concise column labels.
 - Use **bold** for key metrics or the primary measure column.
-- Show trends with ${\color{green}↑}$ for growth / improvement and ${\color{red}↓}$ for decline — no other symbols or emoji.
+- Show trends with <span style="color:#16a34a">↑</span> for growth / improvement and <span style="color:#dc2626">↓</span> for decline — no other symbols or emoji.
 
 **Insights**
 - After each table, provide 1–2 bullet points of key insight in **bold**.
