@@ -125,13 +125,13 @@ Docker Container (port 8000)
 
 - **Verify:** ✅ `uv run pytest tests/test_chat.py` — 5 tests passing (health endpoint, SSE streaming, history passthrough, 422 on oversized message, app.state injection); `uv run pytest` — 27 tests passing total
 
-### TASK 6 — Docker (`Dockerfile` + `docker-compose.yml`)
+### TASK 6 — Docker (`Dockerfile` + `docker-compose.yml`) ✅ DONE
 - 3-stage build: `frontend-build` (Next.js static export), `mcp-build` (copy pre-built dist + node_modules), `runtime` (python:3.12-slim + Node 20 + uv)
 - `uv sync --frozen --no-dev` for reproducible Python deps
 - `CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`
-- **Verify:** `docker compose build` completes without error; `docker compose up -d` starts; `curl http://localhost:8000/health` returns `{"status":"ok",...}`; `docker compose logs` shows no startup errors
+- **Verify:** ✅ `docker compose build` completes; `docker compose up -d` starts; `curl http://localhost:8000/health` → `{"status":"ok","mcp_tools":16}`; logs show no startup errors
 
-### TASK 7 — Platform Scripts (`scripts/`)
+### TASK 7 — Platform Scripts (`scripts/`) ✅ DONE
 - `start-{mac,linux}.sh` / `start-windows.ps1`: check `.env` exists, check Docker running, `docker compose up --build -d`
 - `stop-{mac,linux}.sh` / `stop-windows.ps1`: `docker compose down`
 
@@ -169,7 +169,7 @@ Docker Container (port 8000)
 | 2 | 3 — MCP bridge | done |
 | 3 | 4, 5 — Agent loop + FastAPI | done |
 | 4 | 8 — Frontend | done |
-| 5 | 6, 7 — Docker + scripts | pending |
+| 5 | 6, 7 — Docker + scripts | done |
 | 6 | 9, 10, 11 — Error handling + tests + README | partial (frontend tests done) |
 
 ## Implementation Notes
@@ -182,6 +182,8 @@ Docker Container (port 8000)
 - Frontend test runner: Vitest + React Testing Library (jsdom); config in `frontend/vitest.config.mts`; `vi.spyOn(global, 'fetch')` used to mock SSE streams
 - Frontend `useChat` hook: `execute()` is the internal SSE runner; `sendMessage()` prepends user message; `retry()` strips last 2 messages and re-executes
 - `STATIC_DIR` read from `os.getenv("STATIC_DIR", "/app/frontend/out")` in `main.py` — set in `.env` for local dev
+- Tableau MCP expects `SERVER`, `SITE_NAME`, `PAT_NAME`, `PAT_VALUE` env vars (not `TABLEAU_*` prefixed names) — `mcp_bridge.py` maps settings fields to these names
+- Docker frontend stage uses `npm install` not `npm ci` — `npm ci` fails cross-platform because macOS-generated lock files omit Linux-only optional deps (e.g. `@emnapi/runtime`)
 
 ---
 
