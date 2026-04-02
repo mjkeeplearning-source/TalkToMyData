@@ -69,6 +69,7 @@ Docker Container (port 8000)
 | `TABLEAU_PAT_SECRET` | yes | Personal Access Token secret |
 | `LOG_LEVEL` | no | Default: `INFO` |
 | `MCP_SERVER_PATH` | no | Default: `/app/mcp/build/index.js` |
+| `STATIC_DIR` | no | Default: `/app/frontend/out`; override for local dev |
 
 ---
 
@@ -135,22 +136,24 @@ Docker Container (port 8000)
 - `stop-{mac,linux}.sh` / `stop-windows.ps1`: `docker compose down`
 
 
-### TASK 8 — Frontend (Next.js static export)
+### TASK 8 — Frontend (Next.js static export) ✅ DONE
 - `next.config.ts`: `output: 'export'`, `trailingSlash: true`, `images: { unoptimized: true }`
-- Pages: `/` (landing) and `/chat` (main UI)
+- Pages: `/` (redirects to `/chat`) and `/chat` (main UI)
 - Components: `ChatWindow`, `MessageBubble` (react-markdown + remark-gfm), `ToolCallIndicator`, `MessageInput` (2000-char limit, Enter submits)
-- `Header`: connection status dot from `/health`
-- `useChat.ts`: manages SSE, message array, conversation history sent with each request
+- `Header`: connection status dot polls `/health` every 30s
+- `useChat.ts`: SSE streaming hook — manages messages, history ref, toolStatus, retry
 - `lib/api.ts`: `POST /api/chat` with `{ message, history }`
-
+- Error bubble includes "Try again" button wired to `retry()` in `useChat`
+- `STATIC_DIR` env var overrides hardcoded `/app/frontend/out` for local dev
+- **Verify:** ✅ `cd frontend && npm run build` — `out/` generated (3 static routes); `npm test` — 24 tests passing (MessageBubble ×7, MessageInput ×7, ToolCallIndicator ×2, useChat hook ×8)
 
 ### TASK 9 — Error Handling
 - All SSE generator exceptions caught → emit `event: error`, return cleanly
 - Frontend: error bubble with "Try again"; connection drop → "Connection lost" bubble
 - **Verify:** mock bridge `call_tool` to raise an exception → SSE stream emits `event: error` and closes (no unhandled exception); trigger max iterations → `event: error` emitted; frontend test — `event: error` renders error bubble with retry button
 
-### TASK 10 — Full Test Run
-- **Verify:** `cd backend && uv run pytest` — all tests pass with no warnings; `cd frontend && npm test` — all tests pass
+### TASK 10 — Full Test Run ✅ PARTIAL
+- **Verify:** `cd backend && uv run pytest` — 27 tests passing; `cd frontend && npm test` — 24 tests passing
 
 ### TASK 11 — README
 - Overview, prerequisites, quick-start (cp .env.example, run start script), env var table, architecture diagram, troubleshooting table
@@ -165,9 +168,9 @@ Docker Container (port 8000)
 | 1 | 1, 2 — Scaffolding + env config | done |
 | 2 | 3 — MCP bridge | done |
 | 3 | 4, 5 — Agent loop + FastAPI | done |
-| 4 | 8 — Frontend | pending |
+| 4 | 8 — Frontend | done |
 | 5 | 6, 7 — Docker + scripts | pending |
-| 6 | 9, 10, 11 — Error handling + tests + README | pending |
+| 6 | 9, 10, 11 — Error handling + tests + README | partial (frontend tests done) |
 
 ## Implementation Notes
 
@@ -176,6 +179,9 @@ Docker Container (port 8000)
 - `MCP_SERVER_PATH` added to `config.py` (default `/app/mcp/build/index.js`) — override via env var for local dev
 - `[tool.pytest.ini_options] asyncio_mode = "auto"` added to `backend/pyproject.toml` for async tests
 - `httpx.ASGITransport` does NOT trigger the ASGI lifespan — tests for `main.py` set `app.state` directly in the fixture (after patching `MCPBridge.connect/disconnect` to prevent real subprocess spawning)
+- Frontend test runner: Vitest + React Testing Library (jsdom); config in `frontend/vitest.config.mts`; `vi.spyOn(global, 'fetch')` used to mock SSE streams
+- Frontend `useChat` hook: `execute()` is the internal SSE runner; `sendMessage()` prepends user message; `retry()` strips last 2 messages and re-executes
+- `STATIC_DIR` read from `os.getenv("STATIC_DIR", "/app/frontend/out")` in `main.py` — set in `.env` for local dev
 
 ---
 
@@ -192,3 +198,6 @@ Docker Container (port 8000)
 | No auth | MVP; add JWT in v2 |
 | No CORS config | Frontend and backend share origin |
 | Conversation history in `ChatRequest` | Stateless backend; frontend owns history state |
+| No landing page — `/` redirects to `/chat` | Simpler UX; no extra page to maintain |
+| Tool call status shown as "Analyzing..." | Friendlier than raw tool names; hides implementation detail |
+| `fetch` + `ReadableStream` for SSE (not `EventSource`) | `EventSource` is GET-only; POST required to send message + history |
