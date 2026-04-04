@@ -1,6 +1,6 @@
 import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.types import Tool
@@ -52,7 +52,7 @@ class MockStream:
 @pytest.fixture
 def mock_bridge():
     bridge = MagicMock()
-    bridge.tools = [_mcp_tool("query_data", "Query Tableau data")]
+    bridge.tools = [_mcp_tool("query-datasource", "Query Tableau data")]
     bridge.call_tool = AsyncMock(return_value="tool result")
     return bridge
 
@@ -63,7 +63,7 @@ def test_tools_for_anthropic(mock_bridge):
     result = _tools_for_anthropic(mock_bridge)
     assert result == [
         {
-            "name": "query_data",
+            "name": "query-datasource",
             "description": "Query Tableau data",
             "input_schema": {"type": "object", "properties": {}},
             "cache_control": {"type": "ephemeral"},
@@ -77,7 +77,8 @@ def test_tools_for_anthropic_cache_control_on_last_only():
         Tool(name="a", description="first", inputSchema={"type": "object"}),
         Tool(name="b", description="last", inputSchema={"type": "object"}),
     ]
-    result = _tools_for_anthropic(bridge)
+    with patch("app.services.agent._load_tool_filter", return_value=None):
+        result = _tools_for_anthropic(bridge)
     assert "cache_control" not in result[0]
     assert result[1]["cache_control"] == {"type": "ephemeral"}
 
@@ -85,8 +86,25 @@ def test_tools_for_anthropic_cache_control_on_last_only():
 def test_tools_for_anthropic_none_description():
     bridge = MagicMock()
     bridge.tools = [Tool(name="t", description=None, inputSchema={"type": "object"})]
-    result = _tools_for_anthropic(bridge)
+    with patch("app.services.agent._load_tool_filter", return_value=None):
+        result = _tools_for_anthropic(bridge)
     assert result[0]["description"] == ""
+
+
+def test_tools_for_anthropic_filters_by_whitelist():
+    bridge = MagicMock()
+    bridge.tools = [
+        Tool(name="list-datasources", description="list", inputSchema={"type": "object"}),
+        Tool(name="some-other-tool", description="other", inputSchema={"type": "object"}),
+        Tool(name="query-datasource", description="query", inputSchema={"type": "object"}),
+    ]
+    with patch("app.services.agent._load_tool_filter", return_value={"list-datasources", "query-datasource"}):
+        result = _tools_for_anthropic(bridge)
+    assert len(result) == 2
+    assert result[0]["name"] == "list-datasources"
+    assert result[1]["name"] == "query-datasource"
+    assert "cache_control" not in result[0]
+    assert result[1]["cache_control"] == {"type": "ephemeral"}
 
 
 async def test_run_agent_end_turn(mock_bridge):

@@ -11,8 +11,9 @@ from app.services.mcp_bridge import MCPBridge
 logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 10
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5"
 SYSTEM_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "system.md"
+TOOL_FILTER_PATH = Path(__file__).parent.parent.parent.parent / "tableau_tool.json"
 
 
 def _load_system_prompt() -> str:
@@ -20,8 +21,18 @@ def _load_system_prompt() -> str:
     return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
+def _load_tool_filter() -> set[str] | None:
+    """Load allowed tool names from tableau_tool.json. Returns None if file missing (allow all)."""
+    if not TOOL_FILTER_PATH.exists():
+        logger.warning("tableau_tool.json not found at %s — using all tools", TOOL_FILTER_PATH)
+        return None
+    data = json.loads(TOOL_FILTER_PATH.read_text(encoding="utf-8"))
+    return set(data.get("tool_to_use", []))
+
+
 def _tools_for_anthropic(bridge: MCPBridge) -> list[dict]:
-    """Convert MCP tool list to Anthropic tool format, with cache_control on the last tool."""
+    """Convert MCP tool list to Anthropic tool format, filtered by tableau_tool.json whitelist."""
+    allowed = _load_tool_filter()
     tools = [
         {
             "name": tool.name,
@@ -29,6 +40,7 @@ def _tools_for_anthropic(bridge: MCPBridge) -> list[dict]:
             "input_schema": tool.inputSchema,
         }
         for tool in bridge.tools
+        if allowed is None or tool.name in allowed
     ]
     if tools:
         tools[-1]["cache_control"] = {"type": "ephemeral"}

@@ -33,6 +33,9 @@ RUN cd backend && uv sync --frozen --no-dev
 # Copy backend source
 COPY backend/app/ ./backend/app/
 
+# Copy tool filter config
+COPY tableau_tool.json ./
+
 # Copy MCP pre-built artifacts
 COPY --from=mcp-build /mcp ./mcp/
 

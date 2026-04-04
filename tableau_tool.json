@@ -1,0 +1,3 @@
+{
+    "tool_to_use":["list-datasources","get-datasource-metadata","query-datasource"]
+}

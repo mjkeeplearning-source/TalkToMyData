@@ -50,6 +50,7 @@ Docker Container (port 8000)
 │
 ├── scripts/                   # start/stop for mac, linux, windows
 ├── tableau-mcp/               # cloned + pre-built; dist/ and node_modules/ committed
+├── tableau_tool.json          # whitelist of Tableau MCP tools exposed to the LLM
 ├── Dockerfile                 # 3-stage: frontend-build, mcp-build, runtime
 ├── docker-compose.yml
 ├── .env.example
@@ -161,7 +162,7 @@ Docker Container (port 8000)
 - **Verify:** ✅ End-to-end test confirmed: `curl http://localhost:8000/health` → `{"status":"ok","mcp_tools":16}`; chat `"list data sources"` → agent called `list-datasources` MCP tool → streamed response listing Superstore Datasource
 
 ### Task 12 — AIDA Redesign ✅ DONE
-- Rebranded to **AIDA** (Artificial Intelligence for Data Analytics) with Barclays-inspired navy (#00395D) / teal (#00AEEF) design system
+- Rebranded to **AIDA** (Artificial Intelligence for Data Analytics) with  navy (#00395D) / teal (#00AEEF) design system
 - CSS design tokens in `globals.css`: `--primary`, `--accent`, `--surface-alt`, `--border`, `--text-*`, `--bubble-*`, `--shadow-*`, `--sidebar-*`
 - Header: AIDA logo + subtitle + hamburger for mobile + connection status + "Manish Jain" user avatar (initials MJ)
 - **Multi-conversation sidebar**: `useConversations` hook — localStorage persistence, conversations grouped by date (Today / Yesterday / date), new chat button, per-conversation delete
@@ -220,7 +221,15 @@ Docker Container (port 8000)
 - Multi-turn conversations with tool calls log one line per agentic loop iteration
 - `tests/test_agent.py`: updated `_final_message()` mock to include `usage` SimpleNamespace so all 11 agent tests still pass
 - **Verify:** `uv run pytest tests/test_agent.py` — 11 tests passing; set `LOG_LEVEL=DEBUG` in `.env` to see token lines in `docker compose logs -f`
-- **Note on high token counts**: every API call includes all 16 Tableau MCP tool schemas (~22,276 tokens) + system prompt (~6,000 tokens) — this is the cost of the agentic design. Prompt caching reduces effective cost to ~10% for the cached portion (`cache_read` tokens). See Key Decisions for details.
+- **Note on high token counts**: every API call includes all tool schemas + system prompt (~6,000 tokens) — this is the cost of the agentic design. Prompt caching reduces effective cost to ~10% for the cached portion (`cache_read` tokens). See Key Decisions for details.
+
+### POST-MVP — Tool Whitelist (`tableau_tool.json`) ✅ DONE
+- `tableau_tool.json` in project root: `{"tool_to_use": ["list-datasources", "get-datasource-metadata", "query-datasource"]}` — edit to control which Tableau MCP tools the LLM can use
+- `agent.py`: `_load_tool_filter()` reads whitelist at call time; `_tools_for_anthropic()` filters `bridge.tools` to only whitelisted names before passing to the Anthropic API
+- If file is missing, all tools are passed (fallback with warning log)
+- `Dockerfile`: `COPY tableau_tool.json ./` — copies file to `/app/tableau_tool.json` so it's available in the container
+- `tests/test_agent.py`: `_load_tool_filter` patched to `None` in unit tests that use arbitrary tool names; added `test_tools_for_anthropic_filters_by_whitelist` to verify filtering; `mock_bridge` fixture updated to use `query-datasource`
+- **Verify:** `uv run pytest tests/test_agent.py` — 12 tests passing
 
 ---
 
@@ -257,7 +266,8 @@ Docker Container (port 8000)
 - Trend arrows: system prompt must use `<span style="color:...">` HTML, not LaTeX `${\color{}}$` — ReactMarkdown has no math renderer; `rehype-raw` plugin required to render inline HTML
 - Wide table scroll: `display: block` on `<table>` is not used — instead a `.table-wrap` div with `overflow-x: auto` wraps each table via a custom ReactMarkdown `table` component; this preserves table semantics while enabling horizontal scroll
 - Token usage logging: `message.usage` fields (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`) are all present on the Anthropic final message object; `getattr(..., 0) or 0` guards against `None` for the cache fields on older SDK versions
-- High `cache_read` token counts (~28k) are expected: 16 Tableau tool schemas (~22,276 tokens) + system prompt (~6,000 tokens) are cached for 5 min; `cache_read` costs 10% of normal input price so effective cost is much lower than the raw count suggests
+- High `cache_read` token counts are expected: tool schemas + system prompt (~6,000 tokens) are cached for 5 min; `cache_read` costs 10% of normal input price so effective cost is much lower than the raw count suggests
+- Tool whitelist: `tableau_tool.json` at project root lists allowed tool names; `_load_tool_filter()` reads it per call; missing file falls back to all tools with a warning; `TOOL_FILTER_PATH` resolves via `Path(__file__).parent×4` — works for both local dev (`TalkToMyData/`) and Docker (`/app/`)
 
 ---
 
@@ -285,3 +295,4 @@ Docker Container (port 8000)
 | `rehype-raw` for HTML spans in markdown | Allows `<span style="color:...">` trend arrows from LLM to render; LaTeX math notation unusable without KaTeX/rehype-katex |
 | `.table-wrap` div + custom ReactMarkdown `table` component | Wide tables scroll horizontally inside the bubble without breaking table semantics — `overflow-x: auto` on `display: table` has no effect, requires a block wrapper |
 | DEBUG-level token logging per API call | Surfacing `input/output/cache_write/cache_read` tokens per iteration helps diagnose cost; not logged at INFO to avoid noise in production logs |
+| `tableau_tool.json` whitelist at project root | Decouples tool selection from code — edit the file to add/remove tools without touching `agent.py`; fallback to all tools if file missing |
