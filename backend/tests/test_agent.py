@@ -20,7 +20,8 @@ def _text_event(text: str):
 
 
 def _final_message(stop_reason: str, content=None):
-    return SimpleNamespace(stop_reason=stop_reason, content=content or [])
+    usage = SimpleNamespace(input_tokens=100, output_tokens=50, cache_creation_input_tokens=0, cache_read_input_tokens=0)
+    return SimpleNamespace(stop_reason=stop_reason, content=content or [], usage=usage)
 
 
 def _tool_use_block(name: str, input_: dict, id_: str = "tu_1"):

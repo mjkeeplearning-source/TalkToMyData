@@ -160,6 +160,20 @@ Docker Container (port 8000)
 - Overview, prerequisites, quick-start (all 3 platforms), env var table, troubleshooting table
 - **Verify:** ✅ End-to-end test confirmed: `curl http://localhost:8000/health` → `{"status":"ok","mcp_tools":16}`; chat `"list data sources"` → agent called `list-datasources` MCP tool → streamed response listing Superstore Datasource
 
+### Task 12 — AIDA Redesign ✅ DONE
+- Rebranded to **AIDA** (Artificial Intelligence for Data Analytics) with Barclays-inspired navy (#00395D) / teal (#00AEEF) design system
+- CSS design tokens in `globals.css`: `--primary`, `--accent`, `--surface-alt`, `--border`, `--text-*`, `--bubble-*`, `--shadow-*`, `--sidebar-*`
+- Header: AIDA logo + subtitle + hamburger for mobile + connection status + "Manish Jain" user avatar (initials MJ)
+- **Multi-conversation sidebar**: `useConversations` hook — localStorage persistence, conversations grouped by date (Today / Yesterday / date), new chat button, per-conversation delete
+- New hook architecture: `useChat({conversationId, initialMessages, initialHistory, onSave})` — resets state on conversation switch, calls `onSave(id, messages, history)` on `done`
+- `lib/types.ts`: shared `ChatMessage` (with `id: string`, `timestamp: Date`), `ApiMessage`, `Conversation`
+- `rehype-highlight` + `highlight.js` — syntax-highlighted code blocks with `github.css` theme
+- Message bubbles: `message-appear` slide-up animation, absolute timestamps (HH:MM), copy-to-clipboard on hover, ARIA `role="alert"` on errors
+- Chat window: `role="log"` aria region, stable `key={msg.id}` (no more index keys)
+- Empty state (`EmptyState.tsx`): AIDA mark + 4 suggested prompts (data sources, top products, sales trends, regional comparison)
+- Responsive: sidebar hidden on mobile (slide-in with overlay), always visible on `lg+` via CSS
+- **Verify:** `npm test` — 37 tests passing (5 test files; added `useConversations` tests + 2 new MessageBubble tests); `npm run build` — static export succeeds, TypeScript clean
+
 ### POST-MVP — System Prompt ✅ DONE
 - `backend/app/prompts/system.md` — editable system prompt file; read per-request so changes take effect without restart
 - `agent.py`: `_load_system_prompt()` reads file via `Path.read_text()`; passed as `system=` to `client.messages.stream`
@@ -175,6 +189,38 @@ Docker Container (port 8000)
 - Cache TTL: 5 minutes; cache reads cost 10% of normal input tokens (writes cost 125%)
 - Impact: 16 Tableau tools = ~22,276 tokens; subsequent calls in same conversation save ~20k tokens/call (~65% reduction), staying well under 30k TPM rate limit
 - **Verify:** `uv run pytest tests/test_agent.py` — 10 tests passing (added `test_tools_for_anthropic_cache_control_on_last_only`)
+
+### POST-MVP — Markdown Table Rendering ✅ DONE
+- **Root cause**: Tailwind v4 has no `tailwind.config.ts`; `prose`/`prose-sm` classes from `@tailwindcss/typography` were never installed — tables rendered as unstyled bare HTML
+- Added `.chat-content` scoped CSS in `frontend/app/globals.css`: bordered tables, grey header row, zebra striping, heading/list spacing
+- `MessageBubble.tsx`: wrapped `<ReactMarkdown>` in `<div className="chat-content">`, removed dead `prose` classes
+- **Verify:** `cd frontend && npm test` — 25 tests passing
+
+### POST-MVP — SSE Newline Fix ✅ DONE
+- **Root cause**: Previous multi-line `data:` SSE encoding created `\n\n` (empty data lines) inside events — the frontend `buffer.split("\n\n")` treated these as event terminators, randomly dropping all table rows and content after any blank line in LLM output
+- `agent.py`: encode `\n` in token text as literal two-char `\n` escape (`event.text.replace("\n", "\\n")`) — single `data:` line per event, no ambiguity
+- `useChat.ts`: unescape `\\n` back to `\n` when consuming token events (`eventData.replace(/\\n/g, "\n")`)
+- **Verify:** `uv run pytest tests/test_agent.py` — 11 tests passing (added `test_run_agent_newlines_encoded_in_sse` with double-newline case); `npm test` — 25 tests passing
+
+### POST-MVP — Colored Trend Arrows ✅ DONE
+- **Root cause**: System prompt used LaTeX `${\color{green}↑}$` — `react-markdown` has no math renderer; raw LaTeX appeared verbatim in UI
+- `system.md`: replaced with `<span style="color:#16a34a">↑</span>` and `<span style="color:#dc2626">↓</span>` HTML
+- `MessageBubble.tsx`: added `rehype-raw` plugin to `ReactMarkdown` to render inline HTML spans
+- Installed `rehype-raw@^7.0.0` in frontend
+- **Verify:** `cd frontend && npm test` — 25 tests passing; trend arrows render as colored ↑/↓ in UI
+
+### POST-MVP — Wide Table Horizontal Scroll ✅ DONE
+- **Root cause**: `.chat-content table` had `width: 100%` with no overflow constraint — tables wider than the 80% chat bubble pushed outside it and were clipped
+- `globals.css`: moved `border`, `border-radius`, and `overflow` to a new `.chat-content .table-wrap` wrapper div with `overflow-x: auto`; table itself gets `min-width: 400px` so narrow screens still scroll rather than compress
+- `MessageBubble.tsx`: added a custom `table` component to `ReactMarkdown` that wraps each `<table>` in `<div className="table-wrap">` — wide tables now scroll horizontally inside the bubble
+- **Verify:** `cd frontend && npm test` — 40 tests passing
+
+### POST-MVP — Debug Token Usage Logging ✅ DONE
+- `agent.py`: after each `stream.get_final_message()` call, log `message.usage` at DEBUG level — shows `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` per API call
+- Multi-turn conversations with tool calls log one line per agentic loop iteration
+- `tests/test_agent.py`: updated `_final_message()` mock to include `usage` SimpleNamespace so all 11 agent tests still pass
+- **Verify:** `uv run pytest tests/test_agent.py` — 11 tests passing; set `LOG_LEVEL=DEBUG` in `.env` to see token lines in `docker compose logs -f`
+- **Note on high token counts**: every API call includes all 16 Tableau MCP tool schemas (~22,276 tokens) + system prompt (~6,000 tokens) — this is the cost of the agentic design. Prompt caching reduces effective cost to ~10% for the cached portion (`cache_read` tokens). See Key Decisions for details.
 
 ---
 
@@ -206,6 +252,12 @@ Docker Container (port 8000)
 - System prompt in `backend/app/prompts/system.md`; loaded per-request via `Path.read_text()` — edit without restart
 - `LOG_LEVEL` in `config.py` was never applied; fixed by adding `logging.basicConfig` in `main.py` at startup; DEBUG level logs MCP responses (truncated 500 chars)
 - Prompt caching: `cache_control: {"type": "ephemeral"}` on both system prompt (as content block) and last tool — Anthropic caches the large tool schemas across calls within a 5-min TTL window
+- SSE newline encoding: `\n` in token text escaped as two-char `\n` literal — multi-line `data:` approach caused `\n\n` inside events to be misread as event terminators, dropping content randomly
+- Tailwind v4 has no `tailwind.config.ts` — `@tailwindcss/typography` `prose` classes don't exist; table/heading/list styles added as `.chat-content` scoped CSS in `globals.css`
+- Trend arrows: system prompt must use `<span style="color:...">` HTML, not LaTeX `${\color{}}$` — ReactMarkdown has no math renderer; `rehype-raw` plugin required to render inline HTML
+- Wide table scroll: `display: block` on `<table>` is not used — instead a `.table-wrap` div with `overflow-x: auto` wraps each table via a custom ReactMarkdown `table` component; this preserves table semantics while enabling horizontal scroll
+- Token usage logging: `message.usage` fields (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`) are all present on the Anthropic final message object; `getattr(..., 0) or 0` guards against `None` for the cache fields on older SDK versions
+- High `cache_read` token counts (~28k) are expected: 16 Tableau tool schemas (~22,276 tokens) + system prompt (~6,000 tokens) are cached for 5 min; `cache_read` costs 10% of normal input price so effective cost is much lower than the raw count suggests
 
 ---
 
@@ -228,3 +280,8 @@ Docker Container (port 8000)
 | System prompt in separate file (`prompts/system.md`) | Editable without code changes; reloaded per-request so no restart needed |
 | `logging.basicConfig` at app startup | Wires `LOG_LEVEL` env var into Python logging; INFO shows tool calls, DEBUG adds MCP responses |
 | Prompt caching on system prompt + last tool | ~22k tool schema tokens cached for 5 min; subsequent calls cost 10% of those tokens — avoids 30k TPM rate limit on multi-turn conversations |
+| SSE `\n` escaped as two-char literal | Prevents `\n\n` inside a token from being misread as SSE event separator — multi-line `data:` encoding was the root cause of randomly dropped table content |
+| `.chat-content` CSS instead of `prose` plugin | Tailwind v4 project — `@tailwindcss/typography` not installed, `prose` classes are no-ops; scoped CSS in `globals.css` is explicit and reliable |
+| `rehype-raw` for HTML spans in markdown | Allows `<span style="color:...">` trend arrows from LLM to render; LaTeX math notation unusable without KaTeX/rehype-katex |
+| `.table-wrap` div + custom ReactMarkdown `table` component | Wide tables scroll horizontally inside the bubble without breaking table semantics — `overflow-x: auto` on `display: table` has no effect, requires a block wrapper |
+| DEBUG-level token logging per API call | Surfacing `input/output/cache_write/cache_read` tokens per iteration helps diagnose cost; not logged at INFO to avoid noise in production logs |
