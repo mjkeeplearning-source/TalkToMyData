@@ -34,17 +34,30 @@ export default function MessageInput({ onSend, disabled }: Props) {
     const next = e.target.value;
     if (next.length > MAX_LENGTH) return;
     setValue(next);
-    // auto-grow
     e.target.style.height = "auto";
     e.target.style.height = `${e.target.scrollHeight}px`;
   }
 
   const remaining = MAX_LENGTH - value.length;
+  const canSend = !!value.trim() && !disabled;
 
   return (
-    <div className="border-t border-gray-200 bg-white px-4 py-3">
-      <div className="flex items-end gap-3 max-w-3xl mx-auto">
-        <div className="flex-1 relative">
+    <div
+      className="shrink-0 px-4 py-4"
+      style={{
+        background: "var(--surface)",
+        borderTop: "1px solid var(--border)",
+      }}
+    >
+      <div className="max-w-3xl mx-auto">
+        <div
+          className="flex items-end gap-2 rounded-2xl px-4 py-2 transition-shadow"
+          style={{
+            background: "var(--surface-alt)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
           <textarea
             ref={textareaRef}
             rows={1}
@@ -52,23 +65,52 @@ export default function MessageInput({ onSend, disabled }: Props) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            placeholder="Ask a question… (Enter to send, Shift+Enter for newline)"
-            className="w-full resize-none rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 overflow-hidden"
-            style={{ maxHeight: "160px", overflowY: "auto" }}
+            placeholder="Ask anything about your data…"
+            aria-label="Message input"
+            className="flex-1 resize-none bg-transparent text-sm leading-relaxed py-1.5 focus:outline-none disabled:opacity-50"
+            style={{
+              color: "var(--text-primary)",
+              maxHeight: "160px",
+              overflowY: "auto",
+            }}
           />
-          {remaining <= 200 && (
-            <span className="absolute bottom-2 right-3 text-xs text-gray-400">
-              {remaining}
-            </span>
-          )}
+
+          <div className="flex items-center gap-2 pb-1 shrink-0">
+            {remaining <= 200 && (
+              <span
+                className="text-xs tabular-nums"
+                style={{ color: remaining < 50 ? "var(--error)" : "var(--text-muted)" }}
+                aria-live="polite"
+              >
+                {remaining}
+              </span>
+            )}
+            <button
+              onClick={submit}
+              disabled={!canSend}
+              aria-label="Send message"
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: canSend ? "var(--primary)" : "var(--border)",
+                color: canSend ? "#fff" : "var(--text-muted)",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path
+                  d="M1.5 12.5L12.5 7L1.5 1.5V5.5L9.5 7L1.5 8.5V12.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
-        <button
-          onClick={submit}
-          disabled={disabled || !value.trim()}
-          className="shrink-0 rounded-xl bg-gray-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+
+        <p
+          className="text-center text-[10px] mt-2"
+          style={{ color: "var(--text-muted)" }}
         >
-          Send
-        </button>
+          Enter to send · Shift+Enter for new line
+        </p>
       </div>
     </div>
   );

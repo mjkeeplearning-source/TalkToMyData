@@ -28,9 +28,13 @@ describe("MessageInput", () => {
     expect(onSend).toHaveBeenCalledWith("Test message");
   });
 
-  it("disables textarea and button when disabled=true", () => {
+  it("disables textarea when disabled=true", () => {
     render(<MessageInput onSend={vi.fn()} disabled={true} />);
     expect(screen.getByRole("textbox")).toBeDisabled();
+  });
+
+  it("disables send button when disabled=true", () => {
+    render(<MessageInput onSend={vi.fn()} disabled={true} />);
     expect(screen.getByRole("button", { name: /send/i })).toBeDisabled();
   });
 

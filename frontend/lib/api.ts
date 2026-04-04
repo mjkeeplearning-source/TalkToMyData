@@ -1,11 +1,10 @@
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { type ApiMessage } from "./types";
+
+export type { ApiMessage };
 
 export async function postChat(
   message: string,
-  history: Message[]
+  history: ApiMessage[]
 ): Promise<Response> {
   return fetch("/api/chat", {
     method: "POST",

@@ -63,6 +63,15 @@ async def run_agent(
                         yield f"event: token\ndata: {encoded}\n\n"
                 message = await stream.get_final_message()
 
+            u = message.usage
+            logger.debug(
+                "Token usage — input: %d, output: %d, cache_write: %d, cache_read: %d",
+                u.input_tokens,
+                u.output_tokens,
+                getattr(u, "cache_creation_input_tokens", 0) or 0,
+                getattr(u, "cache_read_input_tokens", 0) or 0,
+            )
+
             if message.stop_reason == "end_turn":
                 yield "event: done\ndata: {}\n\n"
                 return

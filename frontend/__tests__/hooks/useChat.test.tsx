@@ -6,6 +6,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const DEFAULT_OPTS = {
+  conversationId: "conv-1",
+  initialMessages: [] as ReturnType<typeof useChat>["messages"],
+  initialHistory: [] as { role: "user" | "assistant"; content: string }[],
+  onSave: vi.fn(),
+};
+
 function makeStream(events: { event: string; data: string }[]): ReadableStream {
   const text = events
     .map((e) => `event: ${e.event}\ndata: ${e.data}\n\n`)
@@ -36,7 +43,7 @@ function stubFetch(events: { event: string; data: string }[]) {
 
 describe("useChat", () => {
   it("starts with empty messages and not loading", () => {
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     expect(result.current.messages).toEqual([]);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.toolStatus).toBeNull();
@@ -44,12 +51,24 @@ describe("useChat", () => {
 
   it("adds user and assistant messages after sendMessage", async () => {
     stubFetch([{ event: "done", data: "{}" }]);
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hello");
+      await result.current.sendMessage("Hello", "conv-1");
     });
-    expect(result.current.messages[0]).toEqual({ role: "user", content: "Hello" });
+    expect(result.current.messages[0].role).toBe("user");
+    expect(result.current.messages[0].content).toBe("Hello");
     expect(result.current.messages[1].role).toBe("assistant");
+  });
+
+  it("messages include id and timestamp fields", async () => {
+    stubFetch([{ event: "done", data: "{}" }]);
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
+    await act(async () => {
+      await result.current.sendMessage("Hello", "conv-1");
+    });
+    const userMsg = result.current.messages[0];
+    expect(userMsg.id).toBeDefined();
+    expect(userMsg.timestamp).toBeInstanceOf(Date);
   });
 
   it("accumulates token events into assistant message content", async () => {
@@ -58,9 +77,9 @@ describe("useChat", () => {
       { event: "token", data: " world" },
       { event: "done", data: "{}" },
     ]);
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hi");
+      await result.current.sendMessage("Hi", "conv-1");
     });
     const assistant = result.current.messages.find((m) => m.role === "assistant");
     expect(assistant?.content).toBe("Hello world");
@@ -72,9 +91,9 @@ describe("useChat", () => {
       { event: "token", data: "result" },
       { event: "done", data: "{}" },
     ]);
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Go");
+      await result.current.sendMessage("Go", "conv-1");
     });
     expect(result.current.toolStatus).toBeNull();
     expect(result.current.isLoading).toBe(false);
@@ -83,10 +102,12 @@ describe("useChat", () => {
   });
 
   it("sets error message on SSE error event", async () => {
-    stubFetch([{ event: "error", data: '{"message":"Rate limit reached. Please wait a moment and try again."}' }]);
-    const { result } = renderHook(() => useChat());
+    stubFetch([
+      { event: "error", data: '{"message":"Rate limit reached. Please wait a moment and try again."}' },
+    ]);
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hi");
+      await result.current.sendMessage("Hi", "conv-1");
     });
     const errMsg = result.current.messages.find((m) => m.role === "error");
     expect(errMsg).toBeDefined();
@@ -95,9 +116,9 @@ describe("useChat", () => {
 
   it("sets error message on fetch failure", async () => {
     vi.spyOn(global, "fetch").mockRejectedValue(new Error("network"));
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hi");
+      await result.current.sendMessage("Hi", "conv-1");
     });
     const errMsg = result.current.messages.find((m) => m.role === "error");
     expect(errMsg).toBeDefined();
@@ -109,16 +130,15 @@ describe("useChat", () => {
       { event: "token", data: "answer" },
       { event: "done", data: "{}" },
     ]);
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hello");
+      await result.current.sendMessage("Hello", "conv-1");
     });
     expect(result.current.isLoading).toBe(false);
     expect(result.current.toolStatus).toBeNull();
   });
 
   it("reconstructs newlines from escaped \\n literals in SSE data", async () => {
-    // Backend escapes \n as literal \n to avoid splitting SSE event boundaries on \n\n
     const raw =
       "event: token\ndata: ### Heading\\n| Col |\\n\\n| Row |\n\n" +
       "event: done\ndata: {}\n\n";
@@ -126,27 +146,45 @@ describe("useChat", () => {
       ok: true,
       body: makeRawStream(raw),
     } as Response);
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("Hi");
+      await result.current.sendMessage("Hi", "conv-1");
     });
     const assistant = result.current.messages.find((m) => m.role === "assistant");
     expect(assistant?.content).toBe("### Heading\n| Col |\n\n| Row |");
   });
 
+  it("calls onSave with messages and history on done event", async () => {
+    const onSave = vi.fn();
+    stubFetch([
+      { event: "token", data: "answer" },
+      { event: "done", data: "{}" },
+    ]);
+    const { result } = renderHook(() => useChat({ ...DEFAULT_OPTS, onSave }));
+    await act(async () => {
+      await result.current.sendMessage("Hello", "conv-1");
+    });
+    expect(onSave).toHaveBeenCalledWith(
+      "conv-1",
+      expect.any(Array),
+      expect.arrayContaining([
+        expect.objectContaining({ role: "user", content: "Hello" }),
+      ])
+    );
+  });
+
   it("ignores sendMessage when already loading", async () => {
     const fetchSpy = vi
       .spyOn(global, "fetch")
-      .mockResolvedValue({ ok: true, body: makeStream([{ event: "done", data: "{}" }]) } as Response);
+      .mockResolvedValue({
+        ok: true,
+        body: makeStream([{ event: "done", data: "{}" }]),
+      } as Response);
 
-    const { result } = renderHook(() => useChat());
+    const { result } = renderHook(() => useChat(DEFAULT_OPTS));
     await act(async () => {
-      await result.current.sendMessage("First");
+      await result.current.sendMessage("First", "conv-1");
     });
-    const callsAfterFirst = fetchSpy.mock.calls.length;
-
-    // isLoading is false — second call should still go through (not blocked)
-    // but verify fetch was called exactly once for one message
-    expect(callsAfterFirst).toBe(1);
+    expect(fetchSpy.mock.calls.length).toBe(1);
   });
 });

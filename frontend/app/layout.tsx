@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TalkToMyData",
-  description: "Ask questions about your Tableau data",
+  title: "AIDA — AI for Data Analytics",
+  description: "Artificial Intelligence for Data Analytics — ask questions about your Tableau data",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full flex flex-col bg-white">{children}</body>
+      <body className="h-full flex flex-col">{children}</body>
     </html>
   );
 }
