@@ -203,6 +203,10 @@ body {
   white-space: nowrap;
 }
 
+.chat-content th * {
+  color: inherit;
+}
+
 .chat-content td {
   padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--border);
