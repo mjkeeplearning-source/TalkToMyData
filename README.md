@@ -2,6 +2,10 @@
 
 Ask questions about your Tableau Cloud data sources in plain English. Claude autonomously calls Tableau MCP tools to answer.
 
+![alt text](image.png)
+
+![alt text](image-1.png)
+
 ## Architecture
 
 ```
@@ -59,3 +63,4 @@ To stop:
 | `AuthenticationError` from Anthropic | Verify `ANTHROPIC_API_KEY` is valid |
 | Chat shows "unexpected error" | Check logs: `docker compose logs -f` |
 | Port 8000 already in use | Stop the conflicting process or change the port in `docker-compose.yml` |
+
